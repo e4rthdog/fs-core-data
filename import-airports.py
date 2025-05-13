@@ -52,7 +52,7 @@ def create_tables(cursor):
 # Drop views and recreate them
 def create_views(cursor):
     cursor.execute("""
-    CREATE VIEW runway_headings AS
+    CREATE VIEW airport_runways AS
     SELECT 
         r.airport_ident AS airport_icao,
         r.le_ident AS runway,
