@@ -1,31 +1,19 @@
 import sqlite3
 import csv
-import requests
 import os
 
-# URLs
-AIRPORTS_URL = "https://ourairports.com/data/airports.csv"
-RUNWAYS_URL = "https://ourairports.com/data/runways.csv"
+# Source data directory
+SOURCE_DATA_DIR = "source-data"
 
 # Filenames
-AIRPORTS_FILE = "airports.csv"
-RUNWAYS_FILE = "runways.csv"
+AIRPORTS_FILE = os.path.join(SOURCE_DATA_DIR, "airports.csv")
+RUNWAYS_FILE = os.path.join(SOURCE_DATA_DIR, "runways.csv")
 DB_FILE = "airports.db"
-
-# Download CSV if not already present
-def download_csv(url, filename):
-    if not os.path.exists(filename):
-        print(f"Downloading {filename}...")
-        response = requests.get(url)
-        with open(filename, "wb") as f:
-            f.write(response.content)
-    else:
-        print(f"{filename} already exists.")
 
 # Create SQLite schema
 def create_tables(cursor):
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS airports (
+    CREATE TABLE airports (
         id INTEGER PRIMARY KEY,
         ident TEXT,
         type TEXT,
@@ -42,7 +30,7 @@ def create_tables(cursor):
     );
     """)
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS runways (
+    CREATE TABLE runways (
         id INTEGER PRIMARY KEY,
         airport_ref INTEGER,
         airport_ident TEXT,
@@ -61,6 +49,46 @@ def create_tables(cursor):
     );
     """)
 
+# Drop views and recreate them
+def create_views(cursor):
+    cursor.execute("""
+    CREATE VIEW runway_headings AS
+    SELECT 
+        r.airport_ident AS airport_icao,
+        r.le_ident AS runway,
+        CASE 
+            WHEN CAST(SUBSTR(r.le_ident, 1, 2) AS INTEGER) > 0 
+            THEN CAST(SUBSTR(r.le_ident, 1, 2) AS INTEGER) * 10 
+            ELSE NULL 
+        END AS heading_degrees
+    FROM 
+        runways r
+    WHERE 
+        r.le_ident IS NOT NULL AND
+        r.le_ident != '' AND
+        SUBSTR(r.le_ident, 1, 2) GLOB '[0-9]*'
+    
+    UNION
+    
+    SELECT 
+        r.airport_ident AS airport_icao,
+        r.he_ident AS runway,
+        CASE 
+            WHEN CAST(SUBSTR(r.he_ident, 1, 2) AS INTEGER) > 0 
+            THEN CAST(SUBSTR(r.he_ident, 1, 2) AS INTEGER) * 10 
+            ELSE NULL 
+        END AS heading_degrees
+    FROM 
+        runways r
+    WHERE 
+        r.he_ident IS NOT NULL AND
+        r.he_ident != '' AND
+        SUBSTR(r.he_ident, 1, 2) GLOB '[0-9]*'
+    
+    ORDER BY 
+        airport_icao, runway;
+    """)
+
 # Import CSV into SQLite
 def import_csv_to_db(cursor, csv_file, table, column_map):
     with open(csv_file, newline='', encoding='utf-8') as f:
@@ -74,16 +102,28 @@ def import_csv_to_db(cursor, csv_file, table, column_map):
         cursor.executemany(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})", rows)
 
 def main():
-    # Step 1: Download files
-    download_csv(AIRPORTS_URL, AIRPORTS_FILE)
-    download_csv(RUNWAYS_URL, RUNWAYS_FILE)
+    # Check if source files exist
+    if not os.path.exists(AIRPORTS_FILE):
+        print(f"Error: {AIRPORTS_FILE} not found in {SOURCE_DATA_DIR} directory")
+        return
+    if not os.path.exists(RUNWAYS_FILE):
+        print(f"Error: {RUNWAYS_FILE} not found in {SOURCE_DATA_DIR} directory")
+        return
+    
+    print(f"Using airport data from {AIRPORTS_FILE}")
+    print(f"Using runway data from {RUNWAYS_FILE}")
 
-    # Step 2: Create DB
+    # Delete existing DB file if it exists
+    if os.path.exists(DB_FILE):
+        print(f"Removing existing database file: {DB_FILE}")
+        os.remove(DB_FILE)
+
+    # Create DB
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     create_tables(cur)
 
-    # Step 3: Import data
+    # Import data
     print("Importing airports...")
     airport_columns = [
         'id', 'ident', 'type', 'name', 'latitude_deg', 'longitude_deg',
@@ -99,6 +139,10 @@ def main():
         'le_longitude_deg', 'he_ident', 'he_latitude_deg', 'he_longitude_deg'
     ]
     import_csv_to_db(cur, RUNWAYS_FILE, 'runways', runway_columns)
+
+    # Create useful views
+    print("Creating database views...")
+    create_views(cur)
 
     conn.commit()
     conn.close()
