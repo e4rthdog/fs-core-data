@@ -55,6 +55,7 @@ def create_views(cursor):
     CREATE VIEW airport_runways AS
     SELECT 
         r.airport_ident AS airport_icao,
+        a.name AS airport_name,
         r.le_ident AS runway,
         CASE 
             WHEN CAST(SUBSTR(r.le_ident, 1, 2) AS INTEGER) > 0 
@@ -63,6 +64,8 @@ def create_views(cursor):
         END AS heading_degrees
     FROM 
         runways r
+    JOIN
+        airports a ON r.airport_ident = a.ident
     WHERE 
         r.le_ident IS NOT NULL AND
         r.le_ident != '' AND
@@ -72,6 +75,7 @@ def create_views(cursor):
     
     SELECT 
         r.airport_ident AS airport_icao,
+        a.name AS airport_name,
         r.he_ident AS runway,
         CASE 
             WHEN CAST(SUBSTR(r.he_ident, 1, 2) AS INTEGER) > 0 
@@ -80,6 +84,8 @@ def create_views(cursor):
         END AS heading_degrees
     FROM 
         runways r
+    JOIN
+        airports a ON r.airport_ident = a.ident
     WHERE 
         r.he_ident IS NOT NULL AND
         r.he_ident != '' AND
