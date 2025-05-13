@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+virtualenv/
+.virtualenv/
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Keep database files
+# *.db
+# *.sqlite
+# *.sqlite3
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and temp files
+logs/
+*.log
+tmp/
+temp/
+
+# CSV files - uncomment if you don't want to track input data
+# *.csv
+
+# Output directories
+output/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# OS specific files
+.DS_Store
+Thumbs.db
